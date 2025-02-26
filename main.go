@@ -57,6 +57,25 @@ func main() {
 	os.Mkdir("./"+InterfaceDescription.Service.Name, 0755)
 	os.Mkdir("./"+InterfaceDescription.Service.Name+"/stub", 0755)
 
+
+	configFile, err := os.Create("./" + InterfaceDescription.Service.Name + "/config.json")
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	defer configFile.Close()
+	configFile.WriteString(`{
+		"serviceAddr":{
+			"ip": "127.0.0.1",
+			"port": 8000
+		},
+		"serviceFindingAddr":{
+			"ip": "127.0.0.1",
+			"port": 8000,
+			"execute": false
+		}
+	}`)
+
 	mainFile, err := os.Create("./" + InterfaceDescription.Service.Name + "/main.go")
 	if err != nil {
 		fmt.Println(err)
@@ -111,13 +130,15 @@ func stubCodeGeneration(InterfaceDescription InterfaceDescription) (code string)
 
 	// 生成服务注册函数
 	code += "func RegisterServiceTestService(s *server.Service) {\n"
+	code += "\ts.ServiceName = \""+InterfaceDescription.Service.Name+"\"\n"
 	for _, method := range InterfaceDescription.Service.Methods {
 		code += "\ts.AddMethod(\"" + method.Name + "\", " + method.Name + "Func)\n"
 	}
-	code += "	err := s.RegisterService(\"127.0.0.1:8000\")\n"
-	code += "	if err != nil {\n"
+	code += "\taddr := server.GetAddr(s.Config.ServiceAddr.Ip, s.Config.ServiceAddr.Port)\n"
+	code += "\terr := s.RegisterService(addr)\n"
+	code += "\tif err != nil {\n"
 	code += "\t\tpanic(err)\n"
-	code += "	}\n"
+	code += "\t}\n"
 	code += "}\n\n"
 
 	// 生成代理注册
@@ -132,7 +153,12 @@ func stubCodeGeneration(InterfaceDescription InterfaceDescription) (code string)
 	code += "}\n\n"
 
 	code += "func (p *Proxy) RegisterProxy() error {\n"
-	code += "\terr := p.client.ConnectService(\"127.0.0.1:8000\")\n"
+	code += "\tserviceAddr, err := client.ConnectServiceFinding(\"127.0.0.1:8000\", \""+InterfaceDescription.Service.Name+"\")\n"
+	code += "\tif err != nil {\n"
+	code += "\t\treturn err\n"
+	code += "\t}\n"
+	code += "\n"
+	code += "\terr = p.client.ConnectService(serviceAddr)\n"
 	code += "\tif err != nil {\n"
 	code += "\t\treturn err\n"
 	code += "\t}\n"
@@ -189,9 +215,20 @@ func mainCodeGeneration(InterfaceDescription InterfaceDescription) (code string)
 	code += "func main() {\n"
 	code += "\ts := server.CreateService()\n"
 	code += "\n"
+	code += "\ts.GetConfig(\"./config.json\")\n"
 	code += "\tstub.RegisterServiceTestService(s)\n"
 	code += "\tdefer s.Listener.Close()\n"
 	code += "\n"
+
+	code += "\tif s.Config.ServiceFindingAdrr.Execute {\n"
+	code += "\t\terr := s.ServiceFinding()\n"
+	code += "\t\tif err != nil {\n"
+	code += "\t\t\tpanic(err)\n"
+	code += "\t\t}\n"
+	code += "\t\tdefer s.ServiceFindingConn.Close()\n"
+	code += "\t}\n"
+	code += "\n"
+
 	code += "\tgo s.Service()\n"
 	code += "\n"
 	code += "\tselect {}\n"
@@ -206,7 +243,7 @@ func configMod(InterfaceDescription InterfaceDescription) error {
 	if err != nil {
 		return err
 	}
-	
+
 	cmd := exec.Command("go", "mod", "init", InterfaceDescription.Service.Name)
 	_, err = cmd.CombinedOutput()
 	if err != nil {

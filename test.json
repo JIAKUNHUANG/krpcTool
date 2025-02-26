@@ -1,55 +1,42 @@
 {
   "messages": {
-    "Teacher": {
+    "FindingRequest": {
       "message": {
-        "name": {
+        "reqType": {
           "type": "string"
         },
-        "sex": {
-          "type": "bool"
-        },
-        "studentData": {
-          "type": "Student"
-        }
-      }
-    },
-    "Student": {
-      "message": {
-        "name": {
+        "addr": {
           "type": "string"
         },
-        "sex": {
-          "type": "bool"
+        "serviceName": {
+          "type": "string"
         }
       }
     },
-    "NumRequest": {
+    "FindingResponse": {
       "message": {
-        "num": {
-          "type": "float64"
-        }
-      }
-    },
-    "NumResponse": {
-      "message": {
-        "num": {
-          "type": "float64"
+        "status": {
+          "type": "string"
+        },
+        "addr": {
+          "type": "string"
+        },
+        "serviceName": {
+          "type": "string"
+        },
+        "errMsg": {
+          "type": "string"
         }
       }
     }
   },
   "service": {
-    "name": "ServiceTest",
+    "name": "ServiceFinding",
     "methods": [
       {
-        "name": "Double",
-        "input": "NumRequest",
-        "output": "NumResponse"
-      },
-      {
-        "name": "SexExchange",
-        "input": "Teacher",
-        "output": "Teacher"
+        "name": "ServiceFindingMethod",
+        "input": "FindingRequest",
+        "output": "FindingResponse"
       }
     ]
   }
